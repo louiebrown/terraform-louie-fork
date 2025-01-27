@@ -33,7 +33,7 @@ resource "azurerm_virtual_network" "lb_public_vnet" {
 # Public Subnet x 3
 resource "azurerm_subnet" "lb_public_subnet" {
   count               = 3
-  name                = "lb-public-subnet-${count.index}"
+  name                = "lb-public-subnet-${count.index}" # increment for each snet
   resource_group_name = azurerm_virtual_network.lb_public_vnet.resource_group_name
   virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
   address_prefixes    = ["10.0.${count.index}.0/24"]
