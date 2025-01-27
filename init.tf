@@ -18,3 +18,21 @@ provider "azurerm" {
   subscription_id = var.subscription_id
   }
 
+resource "azurerm_virtual_network" "lb_public_vnet" {
+  name                = "lb-public-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  tags = {
+    team = "louie-terraform"
+  }
+}
+
+resource "azurerm_subnet" "lb_public_subnet" {
+  count               = 3
+  name                = "lb-public-subnet-${count.index}"
+  resource_group_name = azurerm_virtual_network.lb_public_vnet.resource_group_name
+  virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
+  address_prefixes    = ["10.0.${count.index}.0/24"]
+}
