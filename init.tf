@@ -46,7 +46,7 @@ resource "azurerm_network_security_group" "lb_public_nsg" {
   resource_group_name = var.resource_group_name
 
   tags = {
-    environment = "development"
+    team = "louie-terraform"
   }
 
   # Allow SSH (Port 22)
@@ -117,3 +117,165 @@ resource "azurerm_subnet" "lb_private_subnet" {
   virtual_network_name = azurerm_virtual_network.lb_private_vnet.name
   address_prefixes    = ["10.1.${count.index}.0/24"]
 }
+
+# Public IPs for VMs
+resource "azurerm_public_ip" "lb_public_ip" {
+  count               = 3
+  name                = "lb-public-ip-${count.index + 1}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Dynamic"
+
+  tags = {
+    team = "louie-terraform"
+  }
+}
+
+# Network Interface with Public IP
+resource "azurerm_network_interface" "lb_public_nic" {
+  count               = 3
+  name                = "lb-public-nic-${count.index + 1}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  ip_configuration {
+    name                          = "ipconfig"
+    subnet_id                     = azurerm_subnet.lb_public_subnet[count.index].id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.lb_public_ip[count.index].id
+  }
+
+  tags = {
+    team = "louie-terraform"
+  }
+}
+
+# Virtual Machines in Public Subnets
+resource "azurerm_linux_virtual_machine" "lb_public_vm" {
+  count               = 3
+  name                = "lb-public-vm-${count.index + 1}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  size                = "Standard_B1ms"
+
+  admin_username = "azureuser"
+  admin_password = "Password1234!"
+
+  network_interface_ids = [
+    azurerm_network_interface.lb_public_nic[count.index].id
+  ]
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
+  }
+}
+
+# Network Interface for Private Subnets
+resource "azurerm_network_interface" "lb_private_nic" {
+  count               = 3
+  name                = "lb-private-nic-${count.index + 1}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  ip_configuration {
+    name                          = "ipconfig"
+    subnet_id                     = azurerm_subnet.lb_private_subnet[count.index].id
+    private_ip_address_allocation = "Dynamic"
+  }
+
+  tags = {
+    team = "louie-terraform"
+  }
+}
+
+# Virtual Machines in Private Subnets
+resource "azurerm_linux_virtual_machine" "lb_private_vm" {
+  count               = 3
+  name                = "lb-private-vm-${count.index + 1}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  size                = "Standard_B1ms"
+
+  admin_username = "azureuser"
+  admin_password = "Password1234!"
+
+  network_interface_ids = [
+    azurerm_network_interface.lb_private_nic[count.index].id
+  ]
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
+  }
+  tags = {
+    team = "louie-terraform"
+  }
+}
+
+# Allow traffic from Public Subnet to Private Subnet
+resource "azurerm_network_security_group" "lb_private_nsg" {
+  name                = "lb-private-nsg"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  security_rule {
+    name                       = "Allow-Private-to-Public"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "10.0.0.0/16" # Address space of public VNet
+    destination_address_prefix = "10.1.0.0/16" # Address space of private VNet
+  }
+  tags = {
+    team = "louie-terraform"
+  }
+}
+
+# Bastion Subnet
+resource "azurerm_subnet" "lb_bastion_subnet" {
+  name                 = "lbBastionSubnet"
+  address_prefixes     = ["10.0.255.0/27"]
+  virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
+  resource_group_name  = var.resource_group_name
+}
+
+# Public IP for Bastion Host
+resource "azurerm_public_ip" "lb_bastion_public_ip" {
+  name                = "lb-bastion-public-ip"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+}
+
+# Bastion Host
+resource "azurerm_bastion_host" "lb_bastion_host" {
+  name                = "lb-bastion-host"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  ip_configuration {
+    name                 = "lb-bastion-configuration"
+    subnet_id            = azurerm_subnet.lb_bastion_subnet.id
+    public_ip_address_id = azurerm_public_ip.lb_bastion_public_ip.id
+  }
+}
+
+
+
