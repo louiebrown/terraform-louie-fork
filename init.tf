@@ -285,6 +285,3 @@ resource "azurerm_bastion_host" "lb_bastion_host" {
     public_ip_address_id = azurerm_public_ip.lb_bastion_public_ip.id
   }
 }
-
-
-
