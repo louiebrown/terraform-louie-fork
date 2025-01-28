@@ -12,3 +12,8 @@ variable "subscription_id" {
   description = "The Azure subscription ID."
   type        = string
 }
+
+variable "ssh_private_key" {
+  type      = string
+  sensitive = true
+}

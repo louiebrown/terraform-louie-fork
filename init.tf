@@ -124,7 +124,7 @@ resource "azurerm_public_ip" "lb_public_ip" {
   name                = "lb-public-ip-${count.index + 1}"
   location            = var.location
   resource_group_name = var.resource_group_name
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"
 
   tags = {
     team = "louie-terraform"
@@ -159,7 +159,12 @@ resource "azurerm_linux_virtual_machine" "lb_public_vm" {
   size                = "Standard_B1ms"
 
   admin_username = "azureuser"
-  admin_password = "Password1234!"
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = var.ssh_private_key
+  }
+
 
   network_interface_ids = [
     azurerm_network_interface.lb_public_nic[count.index].id
@@ -205,7 +210,11 @@ resource "azurerm_linux_virtual_machine" "lb_private_vm" {
   size                = "Standard_B1ms"
 
   admin_username = "azureuser"
-  admin_password = "Password1234!"
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = var.ssh_private_key
+  }
 
   network_interface_ids = [
     azurerm_network_interface.lb_private_nic[count.index].id
@@ -251,7 +260,7 @@ resource "azurerm_network_security_group" "lb_private_nsg" {
 
 # Bastion Subnet
 resource "azurerm_subnet" "lb_bastion_subnet" {
-  name                 = "lbBastionSubnet"
+  name                 = "AzureBastionSubnet"
   address_prefixes     = ["10.0.255.0/27"]
   virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
   resource_group_name  = var.resource_group_name
