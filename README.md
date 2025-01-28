@@ -5,5 +5,6 @@ Space for Terraform exercises as part of 2025 Platforms Academy
 terraform init
 terraform plan
 terraform apply
+terraform apply -var-file "secrets.tfvars"
 terraform destroy
 ```
