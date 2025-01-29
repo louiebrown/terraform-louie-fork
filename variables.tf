@@ -17,3 +17,9 @@ variable "ssh_private_key" {
   type      = string
   sensitive = true
 }
+
+variable "tenant_id" {
+  description = "The Azure Tenant ID."
+  type      = string
+  sensitive = true
+}
