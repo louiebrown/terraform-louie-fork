@@ -1,55 +1,46 @@
 terraform {
   required_providers {
     azurerm = {
-      source = "hashicorp/azurerm"
+      source  = "hashicorp/azurerm"
       version = "4.16.0"
     }
   }
   backend "azurerm" {
-    resource_group_name = "louie-terraform-rg"
+    resource_group_name  = "louie-terraform-rg"
     storage_account_name = "louieterraformsa"
-    container_name = "terraform-state"
-    key = "terraform.tfstate"
+    container_name       = "terraform-state"
+    key                  = "terraform.tfstate"
   }
 }
+
 provider "azurerm" {
   features {}
-
   subscription_id = var.subscription_id
-  }
+}
 
-# Public VNET
-resource "azurerm_virtual_network" "lb_public_vnet" {
-  name                = "lb-public-vnet"
+# Virtual Network
+resource "azurerm_virtual_network" "lb_vnet" {
+  name                = "lb-vnet"
   address_space       = ["10.0.0.0/16"]
   location            = var.location
   resource_group_name = var.resource_group_name
-
-  tags = {
-    team = "louie-terraform"
-  }
 }
 
-# Public Subnet x 3
-resource "azurerm_subnet" "lb_public_subnet" {
-  count               = 3
-  name                = "lb-public-subnet-${count.index}" # increment for each snet
-  resource_group_name = azurerm_virtual_network.lb_public_vnet.resource_group_name
-  virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
-  address_prefixes    = ["10.0.${count.index}.0/24"]
+# Private Subnets (2 for HA)
+resource "azurerm_subnet" "lb_private_subnet" {
+  count                = 2
+  name                 = "lb-private-subnet-${count.index}"
+  resource_group_name  = azurerm_virtual_network.lb_vnet.resource_group_name
+  virtual_network_name = azurerm_virtual_network.lb_vnet.name
+  address_prefixes     = ["10.0.${count.index}.0/24"]
 }
 
-# Network Security Group for Public Subnet
-resource "azurerm_network_security_group" "lb_public_nsg" {
-  name                = "lb-public-nsg"
+# Network Security Group
+resource "azurerm_network_security_group" "lb_nsg" {
+  name                = "lb-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
 
-  tags = {
-    team = "louie-terraform"
-  }
-
-  # Allow SSH (Port 22)
   security_rule {
     name                       = "Allow-SSH"
     priority                   = 100
@@ -62,7 +53,6 @@ resource "azurerm_network_security_group" "lb_public_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Allow HTTP (Port 80)
   security_rule {
     name                       = "Allow-HTTP"
     priority                   = 110
@@ -74,119 +64,12 @@ resource "azurerm_network_security_group" "lb_public_nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-
-  # Allow HTTPS (Port 443)
-  security_rule {
-    name                       = "Allow-HTTPS"
-    priority                   = 120
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
-# Attach NSG to Each Public Subnet
-resource "azurerm_subnet_network_security_group_association" "lb_public_nsg_association" {
-  count                      = 3
-  subnet_id                  = azurerm_subnet.lb_public_subnet[count.index].id
-  network_security_group_id  = azurerm_network_security_group.lb_public_nsg.id
-}
-
-
-# Private VNET
-resource "azurerm_virtual_network" "lb_private_vnet" {
-  name                = "lb-private-vnet"
-  address_space       = ["10.1.0.0/16"]
-  location            = var.location
-  resource_group_name = var.resource_group_name
-
-  tags = {
-    team = "louie-terraform"
-  }
-}
-
-# Private Subnet x 3
-resource "azurerm_subnet" "lb_private_subnet" {
-  count               = 3
-  name                = "lb-private-subnet-${count.index}"
-  resource_group_name = azurerm_virtual_network.lb_private_vnet.resource_group_name
-  virtual_network_name = azurerm_virtual_network.lb_private_vnet.name
-  address_prefixes    = ["10.1.${count.index}.0/24"]
-}
-
-# Public IPs for VMs
-resource "azurerm_public_ip" "lb_public_ip" {
-  count               = 3
-  name                = "lb-public-ip-${count.index + 1}"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-
-  tags = {
-    team = "louie-terraform"
-  }
-}
-
-# Network Interface with Public IP
-resource "azurerm_network_interface" "lb_public_nic" {
-  count               = 3
-  name                = "lb-public-nic-${count.index + 1}"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-
-  ip_configuration {
-    name                          = "ipconfig"
-    subnet_id                     = azurerm_subnet.lb_public_subnet[count.index].id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.lb_public_ip[count.index].id
-  }
-
-  tags = {
-    team = "louie-terraform"
-  }
-}
-
-# Virtual Machines in Public Subnets
-resource "azurerm_linux_virtual_machine" "lb_public_vm" {
-  count               = 3
-  name                = "lb-public-vm-${count.index + 1}"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  size                = "Standard_B1ms"
-
-  admin_username = "azureuser"
-
-  admin_ssh_key {
-    username   = "azureuser"
-    public_key = var.ssh_private_key
-  }
-
-
-  network_interface_ids = [
-    azurerm_network_interface.lb_public_nic[count.index].id
-  ]
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
-  }
-}
-
-# Network Interface for Private Subnets
-resource "azurerm_network_interface" "lb_private_nic" {
-  count               = 3
-  name                = "lb-private-nic-${count.index + 1}"
+# Network Interfaces
+resource "azurerm_network_interface" "lb_nic" {
+  count               = 2
+  name                = "lb-nic-${count.index}"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -195,30 +78,23 @@ resource "azurerm_network_interface" "lb_private_nic" {
     subnet_id                     = azurerm_subnet.lb_private_subnet[count.index].id
     private_ip_address_allocation = "Dynamic"
   }
-
-  tags = {
-    team = "louie-terraform"
-  }
 }
 
-# Virtual Machines in Private Subnets
-resource "azurerm_linux_virtual_machine" "lb_private_vm" {
-  count               = 3
-  name                = "lb-private-vm-${count.index + 1}"
+# Virtual Machines (2 for HA)
+resource "azurerm_linux_virtual_machine" "lb_vm" {
+  count               = 2
+  name                = "lb-vm-${count.index}"
   resource_group_name = var.resource_group_name
   location            = var.location
   size                = "Standard_B1ms"
-
-  admin_username = "azureuser"
+  admin_username      = "azureuser"
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = var.ssh_private_key
+    public_key = file(var.ssh_private_key)
   }
 
-  network_interface_ids = [
-    azurerm_network_interface.lb_private_nic[count.index].id
-  ]
+  network_interface_ids = [azurerm_network_interface.lb_nic[count.index].id]
 
   os_disk {
     caching              = "ReadWrite"
@@ -231,57 +107,101 @@ resource "azurerm_linux_virtual_machine" "lb_private_vm" {
     sku       = "18.04-LTS"
     version   = "latest"
   }
-  tags = {
-    team = "louie-terraform"
-  }
 }
 
-# Allow traffic from Public Subnet to Private Subnet
-resource "azurerm_network_security_group" "lb_private_nsg" {
-  name                = "lb-private-nsg"
+# Azure Load Balancer
+resource "azurerm_lb" "lb" {
+  name                = "lb"
   location            = var.location
   resource_group_name = var.resource_group_name
+  sku                 = "Standard"
 
-  security_rule {
-    name                       = "Allow-Private-to-Public"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "10.0.0.0/16" # Address space of public VNet
-    destination_address_prefix = "10.1.0.0/16" # Address space of private VNet
-  }
-  tags = {
-    team = "louie-terraform"
+  frontend_ip_configuration {
+    name                 = "PublicIPAddress"
+    public_ip_address_id = azurerm_public_ip.lb_public_ip.id
   }
 }
 
-# Bastion Subnet
-resource "azurerm_subnet" "lb_bastion_subnet" {
-  name                 = "AzureBastionSubnet"
-  address_prefixes     = ["10.0.255.0/27"]
-  virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
-  resource_group_name  = var.resource_group_name
+resource "azurerm_lb_backend_address_pool" "backend_pool" {
+  loadbalancer_id = azurerm_lb.lb.id
+  name            = "BackendPool"
 }
 
-# Public IP for Bastion Host
-resource "azurerm_public_ip" "lb_bastion_public_ip" {
-  name                = "lb-bastion-public-ip"
+resource "azurerm_lb_rule" "lb_rule" {
+  loadbalancer_id                = azurerm_lb.lb.id
+  name                           = "http-rule"
+  protocol                       = "Tcp"
+  frontend_port                  = 80
+  backend_port                   = 80
+  frontend_ip_configuration_name = azurerm_lb.lb.frontend_ip_configuration[0].name
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.backend_pool.id]
+}
+
+# Azure Database (PostgreSQL)
+resource "azurerm_postgresql_flexible_server" "db" {
+  name                         = "academy-db"
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  sku_name                     = "GP_Standard_D2s_v3"
+  storage_mb                   = 32768
+  administrator_login          = "adminuser"
+  administrator_password       = "StrongPassword1234!"
+  geo_redundant_backup_enabled = true
+}
+
+# Azure Key Vault (SSL Certificates)
+resource "azurerm_key_vault" "kv" {
+  name                = "academy-kv"
+  tenant_id           = var.tenant_id
   location            = var.location
   resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
+  sku_name            = "standard"
 }
 
-# Bastion Host
-resource "azurerm_bastion_host" "lb_bastion_host" {
-  name                = "lb-bastion-host"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  ip_configuration {
-    name                 = "lb-bastion-configuration"
-    subnet_id            = azurerm_subnet.lb_bastion_subnet.id
-    public_ip_address_id = azurerm_public_ip.lb_bastion_public_ip.id
+resource "azurerm_key_vault_certificate" "ssl_cert" {
+  name         = "ssl-cert"
+  key_vault_id = azurerm_key_vault.kv.id
+
+  certificate_policy {
+    issuer_parameters {
+      name = "Self"
+    }
+
+    key_properties {
+      exportable = true
+      key_type   = "RSA"
+      key_size   = 2048
+      reuse_key  = true
+    }
+
+    lifetime_action {
+      action {
+        action_type = "AutoRenew"
+      }
+      trigger {
+        days_before_expiry = 30
+      }
+    }
+
+    secret_properties {
+      content_type = "application/x-pem-file"
+    }
+
+
+    x509_certificate_properties {
+      subject            = "CN=example.com"
+      validity_in_months = 12
+
+      key_usage = [
+        "digitalSignature",
+        "keyEncipherment"
+      ]
+
+      extended_key_usage = [
+        "1.3.6.1.5.5.7.3.1", # TLS Server Authentication
+        "1.3.6.1.5.5.7.3.2"  # TLS Client Authentication
+      ]
+    }
   }
 }
+
