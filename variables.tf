@@ -23,3 +23,13 @@ variable "tenant_id" {
   type      = string
   sensitive = true
 }
+
+variable "object_id" {
+
+description = "The Azure Terraform SP ID."
+
+type = string
+
+sensitive = true
+
+}
