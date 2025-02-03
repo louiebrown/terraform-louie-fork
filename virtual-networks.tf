@@ -1,19 +1,20 @@
 # Public VNET
 resource "azurerm_virtual_network" "lb_public_vnet" {
-  name                = "lb-public-vnet"
+  name                = "${var.env_prefix}-public-vnet"  # Dynamic name based on environment
   address_space       = ["10.0.0.0/16"]
   location            = var.location
   resource_group_name = var.resource_group_name
 
   tags = {
     team = "louie-terraform"
+    environment = var.environment  # Adds environment tag
   }
 }
 
-# Public Subnet x 3
+# Public Subnet x 2 (for Dev and Prod environments)
 resource "azurerm_subnet" "lb_public_subnet" {
-  count               = 3
-  name                = "lb-public-subnet-${count.index}" # increment for each snet
+  count               = var.vms_count  # 2 for both environments
+  name                = "${var.env_prefix}-public-subnet-${count.index}" # Dynamic name based on environment
   resource_group_name = azurerm_virtual_network.lb_public_vnet.resource_group_name
   virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
   address_prefixes    = ["10.0.${count.index}.0/24"]
@@ -21,20 +22,21 @@ resource "azurerm_subnet" "lb_public_subnet" {
 
 # Private VNET
 resource "azurerm_virtual_network" "lb_private_vnet" {
-  name                = "lb-private-vnet"
+  name                = "${var.env_prefix}-private-vnet"  # Dynamic name based on environment
   address_space       = ["10.1.0.0/16"]
   location            = var.location
   resource_group_name = var.resource_group_name
 
   tags = {
     team = "louie-terraform"
+    environment = var.environment  # Adds environment tag
   }
 }
 
-# Private Subnet x 3
+# Private Subnet x 2 (for Dev and Prod environments)
 resource "azurerm_subnet" "lb_private_subnet" {
-  count               = 3
-  name                = "lb-private-subnet-${count.index}"
+  count               = var.vms_count  # 2 for both environments
+  name                = "${var.env_prefix}-private-subnet-${count.index}"
   resource_group_name = azurerm_virtual_network.lb_private_vnet.resource_group_name
   virtual_network_name = azurerm_virtual_network.lb_private_vnet.name
   address_prefixes    = ["10.1.${count.index}.0/24"]
