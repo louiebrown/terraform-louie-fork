@@ -1,25 +1,27 @@
-# Create a PostgreSQL server
-resource "azurerm_postgresql_server" "lb_postgresql_server" {
-  name                = "${var.env_prefix}-postgresql-server"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  version             = "11" 
-  sku_name            = "B_Gen5_2" 
-  administrator_login = "psqladmin"
-
-  ssl_enforcement_enabled = true  # Enforce SSL connections to the database
-
-  geo_redundant_backup_enabled = true  # Enable geo-redundant backups for high availability
-
-  tags = {
-    environment = var.environment
-  }
+resource "random_password" "admin_password" {
+  count       = var.admin_password == null ? 1 : 0
+  length      = 20
+  special     = true
+  min_numeric = 1
+  min_upper   = 1
+  min_lower   = 1
+  min_special = 1
 }
 
-# Create a virtual network rule to allow access from the VNet (Private Subnet)
-resource "azurerm_postgresql_virtual_network_rule" "lb_pg_vnet_rule" {
-  name                      = "allow-vnet"
-  resource_group_name       = var.resource_group_name
-  server_name               = azurerm_postgresql_server.lb_postgresql_server.name
-  subnet_id = azurerm_subnet.lb_private_subnet[0].id  # Reference the subnet ID of the private subnet
+locals {
+  admin_password = try(random_password.admin_password[0].result, var.admin_password)
+}
+
+resource "azurerm_mssql_server" "server" {
+  name                         = "${var.team_name}-mysql"
+  resource_group_name          = azurerm_resource_group.this.name
+  location                     = azurerm_resource_group.this.location
+  administrator_login          = var.admin_username
+  administrator_login_password = local.admin_password
+  version                      = "12.0"
+}
+
+resource "azurerm_mssql_database" "this" {
+  name      = "${var.team_name}-db"
+  server_id = azurerm_mssql_server.server.id
 }

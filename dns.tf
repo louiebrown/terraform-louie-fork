@@ -1,18 +1,37 @@
-# Create a DNS Zone in Azure
-resource "azurerm_dns_zone" "dns_zone" {
-  name                = "lb-pa-task.com"
-  resource_group_name = var.resource_group_name
+resource "azurerm_dns_ns_record" "bancey" {
+  name                = var.team_name
+  zone_name           = "azure.lab.bancey.xyz"
+  resource_group_name = "dns-zones"
+  ttl                 = var.dns_ttl
+  records             = azurerm_dns_zone.this.name_servers
+  tags = {
+    team = var.team_name
+  }
 }
 
-# Create an A Record to point to the Load Balancer's public IP
-resource "azurerm_dns_a_record" "load_balancer_a_record" {
-  name                = "www"  # Pointing www to the load balancer
-  zone_name           = azurerm_dns_zone.dns_zone.name
-  resource_group_name = var.resource_group_name
-  ttl                 = 300
-  records             = [azurerm_public_ip.lb_public_ip.ip_address]  # Point to the Load Balancer's public IP
-
+resource "azurerm_dns_zone" "this" {
+  name                = "${var.team_name}.azure.lab.bancey.xyz"
+  resource_group_name = azurerm_resource_group.this.name
   tags = {
-    environment = var.environment
+    team = var.team_name
+  }
+}
+
+resource "azurerm_dns_a_record" "apex" {
+  name                = "@"
+  resource_group_name = azurerm_resource_group.this.name
+  zone_name           = azurerm_dns_zone.this.name
+  ttl                 = var.dns_ttl
+  target_resource_id  = azurerm_cdn_frontdoor_endpoint.this.id
+}
+
+resource "azurerm_dns_txt_record" "domain_validation" {
+  name                = "_dnsauth"
+  zone_name           = azurerm_dns_zone.this.name
+  resource_group_name = azurerm_resource_group.this.name
+  ttl                 = 300
+
+  record {
+    value = azurerm_cdn_frontdoor_custom_domain.this.validation_token
   }
 }
