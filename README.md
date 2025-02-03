@@ -27,6 +27,8 @@ terraform plan
 terraform apply
 
 terraform apply -var-file "secrets.tfvars" # Optional
+terraform apply -var-file="dev.tfvars"
+terraform apply -var-file="prod.tfvars"
 
 terraform destroy
 ```
