@@ -1,14 +1,9 @@
-# Network Security Group for Public Subnet
+# Allow HTTP, HTTPS, and SSH (port 22) for the public subnet
 resource "azurerm_network_security_group" "lb_public_nsg" {
-  name                = "lb-public-nsg"
+  name                = "${var.env_prefix}-lb-public-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
 
-  tags = {
-    team = "louie-terraform"
-  }
-
-  # Allow SSH (Port 22)
   security_rule {
     name                       = "Allow-SSH"
     priority                   = 100
@@ -21,7 +16,6 @@ resource "azurerm_network_security_group" "lb_public_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Allow HTTP (Port 80)
   security_rule {
     name                       = "Allow-HTTP"
     priority                   = 110
@@ -34,7 +28,6 @@ resource "azurerm_network_security_group" "lb_public_nsg" {
     destination_address_prefix = "*"
   }
 
-  # Allow HTTPS (Port 443)
   security_rule {
     name                       = "Allow-HTTPS"
     priority                   = 120
@@ -47,6 +40,7 @@ resource "azurerm_network_security_group" "lb_public_nsg" {
     destination_address_prefix = "*"
   }
 }
+
 
 # Attach NSG to Each Public Subnet
 resource "azurerm_subnet_network_security_group_association" "lb_public_nsg_association" {

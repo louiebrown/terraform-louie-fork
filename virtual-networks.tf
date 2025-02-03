@@ -11,15 +11,6 @@ resource "azurerm_virtual_network" "lb_public_vnet" {
   }
 }
 
-# Public Subnet x 2 (for Dev and Prod environments)
-resource "azurerm_subnet" "lb_public_subnet" {
-  count               = var.vms_count  # 2 for both environments
-  name                = "${var.env_prefix}-public-subnet-${count.index}" # Dynamic name based on environment
-  resource_group_name = azurerm_virtual_network.lb_public_vnet.resource_group_name
-  virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
-  address_prefixes    = ["10.0.${count.index}.0/24"]
-}
-
 # Private VNET
 resource "azurerm_virtual_network" "lb_private_vnet" {
   name                = "${var.env_prefix}-private-vnet"  # Dynamic name based on environment
@@ -33,9 +24,18 @@ resource "azurerm_virtual_network" "lb_private_vnet" {
   }
 }
 
+# Public Subnet x 2 (for Dev and Prod environments)
+resource "azurerm_subnet" "lb_public_subnet" {
+  count               = 2  # Change count to 2 for both environments
+  name                = "${var.env_prefix}-public-subnet-${count.index}"
+  resource_group_name = azurerm_virtual_network.lb_public_vnet.resource_group_name
+  virtual_network_name = azurerm_virtual_network.lb_public_vnet.name
+  address_prefixes    = ["10.0.${count.index}.0/24"]
+}
+
 # Private Subnet x 2 (for Dev and Prod environments)
 resource "azurerm_subnet" "lb_private_subnet" {
-  count               = var.vms_count  # 2 for both environments
+  count               = 2  # Change count to 2 for both environments
   name                = "${var.env_prefix}-private-subnet-${count.index}"
   resource_group_name = azurerm_virtual_network.lb_private_vnet.resource_group_name
   virtual_network_name = azurerm_virtual_network.lb_private_vnet.name

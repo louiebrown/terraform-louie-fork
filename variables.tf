@@ -35,11 +35,6 @@ variable "ssh_private_key" {
   type        = string
 }
 
-
-variable "resource_group_name" {
-  description = "The name of the Azure resource group."
-  type        = string
-}
 variable "subscription_id" {
   description = "The Azure subscription ID."
   type        = string
@@ -51,11 +46,7 @@ variable "tenant_id" {
 }
 
 variable "object_id" {
-
   description = "The Azure Terraform SP ID."
-
   type = string
-
   sensitive = true
-
 }
