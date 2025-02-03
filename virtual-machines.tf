@@ -1,7 +1,7 @@
 # Virtual Machines in Public Subnets
 resource "azurerm_linux_virtual_machine" "lb_public_vm" {
   count               = 3
-  name                = "lb-public-vm-${count.index + 1}"
+  name                = "lb-public-vm-${count.index}"
   resource_group_name = var.resource_group_name
   location            = var.location
   size                = "Standard_B1ms"
@@ -34,7 +34,7 @@ resource "azurerm_linux_virtual_machine" "lb_public_vm" {
 # Public IPs for VMs
 resource "azurerm_public_ip" "lb_public_ip" {
   count               = 3
-  name                = "lb-public-ip-${count.index + 1}"
+  name                = "lb-public-ip-${count.index}"
   location            = var.location
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
@@ -47,7 +47,7 @@ resource "azurerm_public_ip" "lb_public_ip" {
 # Network Interface with Public IP
 resource "azurerm_network_interface" "lb_public_nic" {
   count               = 3
-  name                = "lb-public-nic-${count.index + 1}"
+  name                = "lb-public-nic-${count.index}"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -66,7 +66,7 @@ resource "azurerm_network_interface" "lb_public_nic" {
 # Virtual Machines in Private Subnets
 resource "azurerm_linux_virtual_machine" "lb_private_vm" {
   count               = 3
-  name                = "lb-private-vm-${count.index + 1}"
+  name                = "lb-private-vm-${count.index}"
   resource_group_name = var.resource_group_name
   location            = var.location
   size                = "Standard_B1ms"
@@ -99,7 +99,7 @@ resource "azurerm_linux_virtual_machine" "lb_private_vm" {
 # Network Interface with Private IP
 resource "azurerm_network_interface" "lb_private_nic" {
   count               = 3
-  name                = "lb-private-nic-${count.index + 1}"
+  name                = "lb-private-nic-${count.index}"
   location            = var.location
   resource_group_name = var.resource_group_name
 

@@ -74,8 +74,21 @@ resource "azurerm_network_security_group" "lb_private_nsg" {
     destination_address_prefix = "*"
   }
 
+  # Allow SSH from Public to Private (for VM Bastion/Management)
+  security_rule {
+    name                       = "allow-ssh-from-public"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"  # SSH
+    source_address_prefix      = "10.1.0.0/16"  # Public subnet CIDR range
+    destination_address_prefix = "*"
+  }
+
   tags = {
-    "Team" = "Team A"
+    team = "louie-terraform"
   }
 }
 
